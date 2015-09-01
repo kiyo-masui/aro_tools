@@ -41,8 +41,11 @@ class Ring(object):
         self._sample_time = header[2] / FFT_RATE
         self._delta_t = self._sample_time * scrunch
         # The record we will call "0".
-        self._record_offset = ((header[0] + (header[1]) * self._ninteg_ring)
+        # XXX
+        self._record_offset = ((header[0] + int((header[1] - 0.4) * self._ninteg_ring))
                                // (scrunch * NTIME_RECORD))
+        #self._record_offset = ((header[0] + header[1] * self._ninteg_ring)
+        #                       // (scrunch * NTIME_RECORD))
 
 
     def current_records(self):
