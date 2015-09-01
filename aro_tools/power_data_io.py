@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 
 # File format parameters
@@ -14,6 +16,7 @@ FREQ0 = 800.
 DELTA_F = -400. / 1024
 
 NPOL = 2
+POL_WEIGHTS = [0., 1.]
 
 CAL_PERIOD_SAMPLES = 0
 
@@ -126,4 +129,77 @@ class Ring(object):
 class DataGone(Exception):
     pass
 
+
+
+MOCK_N_SAMP_INTEG = 512
+MOCK_RING_LEN = 200
+MOCK_START_TIME = time.time() - MOCK_RING_LEN
+
+class MockRing(object):
+
+    def __init__(self, filename, scrunch):
+        self._scrunch = scrunch
+        self._delta_t = MOCK_N_SAMP_INTEG * self._scrunch / FFT_RATE
+
+
+    def get_parameters(self):
+        parameters = {}
+
+        parameters['cal_period_samples'] = CAL_PERIOD_SAMPLES
+        parameters['delta_t'] = self._delta_t
+        parameters['nfreq'] = NFREQ
+        parameters['freq0'] = FREQ0
+
+        parameters['delta_f'] = DELTA_F
+        parameters['ntime_record'] = NTIME_RECORD
+        parameters['nrecords'] = self.get_nrecords()
+
+        return parameters
+
+
+    def read_records(self, start_record=None, end_record=None):
+        """Right now just generates fake data."""
+        
+        first_available_record, last_record = self.current_records()
+
+        if start_record is None:
+            start_record = first_available_record
+        if end_record is None:
+            end_record = last_record
+
+        if start_record < first_available_record:
+            raise DataGone()
+        if end_record > last_record:
+            end_record = last_record
+        if start_record >= last_record:
+            raise ValueError("No data to read.")
+
+        nrecords = end_record - start_record
+        ntime = nrecords * NTIME_RECORD
+        out = np.empty((NFREQ, nrecords, NTIME_RECORD), dtype=np.float32)
+
+        # The fake part.
+        from numpy import random
+        # Every record is the same!
+        noise = random.randn(NTIME_RECORD, 2, NFREQ)
+        record_data = (noise + 32) * 10
+        record_data = record_data.astype(np.uint32)
+        for ii in range(nrecords):
+            out[:,ii,:] = np.transpose(record_data[:,0,:] + record_data[:,1,:])
+        out.shape = (NFREQ, nrecords * NTIME_RECORD)
+        return out
+
+
+    def get_nrecords(self):
+        """Totally fake."""
+
+        last = int((time.time() - MOCK_START_TIME) / (self._delta_t * NTIME_RECORD))
+        #print last
+        return last
+
+    def current_records(self):
+        last = self.get_nrecords()
+        first = last - int(MOCK_RING_LEN / self._delta_t / NTIME_RECORD)
+
+        return first, last
 
