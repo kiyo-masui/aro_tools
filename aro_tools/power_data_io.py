@@ -106,6 +106,8 @@ class Ring(object):
 
         out = np.empty((NFREQ, (end_record - start_record), NTIME_RECORD),
                        dtype=np.float32)
+        time = np.empty(((end_record - start_record), NTIME_RECORD),
+                        dtype=np.float32)
         integ_bytes_data = NPOL * NFREQ * DTYPE.itemsize
         integ_bytes = integ_bytes_data + FRAME_HEADER_LEN
 
@@ -117,16 +119,22 @@ class Ring(object):
                     integ_ind_jj = (abs_record_ind * NTIME_RECORD + jj) * scrunch
                     for kk in range(self._scrunch):
                         integ_ind = (integ_ind_jj + kk) % self._ninteg_ring
-                        f.seek(HEADER_LEN + integ_ind * integ_bytes
-                               + FRAME_HEADER_LEN)
+                        #f.seek(HEADER_LEN + integ_ind * integ_bytes
+                        #       + FRAME_HEADER_LEN)
+                        f.seek(HEADER_LEN + integ_ind * integ_bytes)
+                        s = f.read(FRAME_HEADER_LEN)
+                        header = np.fromstring(s, dtype=DTYPE)
+                        if kk == 0:
+                            time[ii,jj] = header[1]
                         s = f.read(integ_bytes_data)
                         integ = np.fromstring(s, dtype=DTYPE)
                         integ.shape = (NPOL, NFREQ)
                         for pp in range(NPOL):
-                            record_data[jj, :] += integ[pp]
+                            record_data[jj, :] += POL_WEIGHTS[pp] * integ[pp]
                 out[:,ii,:] = transpose.blocked(record_data)
         out.shape = (NFREQ, (end_record - start_record) * NTIME_RECORD)
-        return out
+        time.shape = ((end_record - start_record) * NTIME_RECORD,)
+        return out, time
 
 
 
