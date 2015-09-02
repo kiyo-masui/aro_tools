@@ -2,6 +2,8 @@ import time
 
 import numpy as np
 
+import transpose
+
 # File format parameters
 HEADER_LEN = 12       # Bytes: index, loops, n_FFT_int
 FRAME_HEADER_LEN = 8  # Bytes: FGPA counts, Unix_time
@@ -104,7 +106,8 @@ class Ring(object):
 
         out = np.empty((NFREQ, (end_record - start_record), NTIME_RECORD),
                        dtype=np.float32)
-        integ_bytes = NPOL * NFREQ * DTYPE.itemsize
+        integ_bytes_data = NPOL * NFREQ * DTYPE.itemsize
+        integ_bytes = integ_bytes_data + FRAME_HEADER_LEN
 
         with open(self._filename, 'r') as f:
             for ii in range(end_record - start_record):
@@ -114,13 +117,14 @@ class Ring(object):
                     integ_ind_jj = (abs_record_ind * NTIME_RECORD + jj) * scrunch
                     for kk in range(self._scrunch):
                         integ_ind = (integ_ind_jj + kk) % self._ninteg_ring
-                        f.seek(HEADER_LEN + integ_ind * integ_bytes)
-                        s = f.read(integ_bytes)
+                        f.seek(HEADER_LEN + integ_ind * integ_bytes
+                               + FRAME_HEADER_LEN)
+                        s = f.read(integ_bytes_data)
                         integ = np.fromstring(s, dtype=DTYPE)
                         integ.shape = (NPOL, NFREQ)
                         for pp in range(NPOL):
                             record_data[jj, :] += integ[pp]
-                out[:,ii,:] = np.transpose(record_data)
+                out[:,ii,:] = transpose.blocked(record_data)
         out.shape = (NFREQ, (end_record - start_record) * NTIME_RECORD)
         return out
 
@@ -185,7 +189,7 @@ class MockRing(object):
         record_data = (noise + 32) * 10
         record_data = record_data.astype(np.uint32)
         for ii in range(nrecords):
-            out[:,ii,:] = np.transpose(record_data[:,0,:] + record_data[:,1,:])
+            out[:,ii,:] = transpose.blocked(record_data[:,0,:] + record_data[:,1,:])
         out.shape = (NFREQ, nrecords * NTIME_RECORD)
         return out
 
