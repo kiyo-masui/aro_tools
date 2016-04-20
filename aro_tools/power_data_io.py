@@ -198,8 +198,10 @@ class MockRing(object):
         record_data = record_data.astype(np.uint32)
         for ii in range(nrecords):
             out[:,ii,:] = transpose.blocked(record_data[:,0,:] + record_data[:,1,:])
+        t0 = time.time() - (self._delta_t * NTIME_RECORD * nrecords)
+        time = t0 + np.arange(nrecords) * self._delta_t
         out.shape = (NFREQ, nrecords * NTIME_RECORD)
-        return out
+        return out, time
 
 
     def get_nrecords(self):
